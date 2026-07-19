@@ -4,6 +4,8 @@ Skyprint is an ESP32 desk display that presents the closest airborne aircraft
 as a quiet monochrome identification plaque. It deliberately avoids maps,
 tracks, and radar styling.
 
+<img src="assets/irl/PXL_20260719_171513789.jpg" alt="Skyprint displaying live aircraft information" width="500">
+
 ## Hardware and wiring
 
 - Inland 38-pin ESP32 development board
