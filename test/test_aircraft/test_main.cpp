@@ -5,6 +5,7 @@
 
 #include "aircraft.h"
 #include "aircraft_json.h"
+#include "route_selection.h"
 
 using skyprint::Aircraft;
 using skyprint::AircraftSelector;
@@ -174,6 +175,35 @@ void testSelectorClearsAfterTwoEmptyScans() {
   TEST_ASSERT_FALSE(selector.hasCurrent());
 }
 
+void testPublishedRoundTripSelectsCurrentLeg() {
+  const std::vector<skyprint::PublishedAirport> airports = {
+      {"CLT", 35.214, -80.943},
+      {"LGA", 40.777, -73.873},
+      {"CLT", 35.214, -80.943},
+  };
+  skyprint::RouteInfo route;
+
+  TEST_ASSERT_TRUE(skyprint::selectPublishedRouteLeg(
+      airports, 35.5, -80.5, true, 50.0, route));
+  TEST_ASSERT_EQUAL_STRING("CLT", route.origin.c_str());
+  TEST_ASSERT_EQUAL_STRING("LGA", route.destination.c_str());
+
+  TEST_ASSERT_TRUE(skyprint::selectPublishedRouteLeg(
+      airports, 35.5, -80.5, true, 230.0, route));
+  TEST_ASSERT_EQUAL_STRING("LGA", route.origin.c_str());
+  TEST_ASSERT_EQUAL_STRING("CLT", route.destination.c_str());
+}
+
+void testPublishedRouteRejectsInvalidOrDistantLeg() {
+  skyprint::RouteInfo route;
+  TEST_ASSERT_FALSE(skyprint::selectPublishedRouteLeg(
+      {{"CLT", 35.214, -80.943}, {"CLT", 35.214, -80.943}}, 35.3,
+      -80.8, false, 0.0, route));
+  TEST_ASSERT_FALSE(skyprint::selectPublishedRouteLeg(
+      {{"CLT", 35.214, -80.943}, {"LGA", 40.777, -73.873}}, 0.0, 0.0,
+      false, 0.0, route));
+}
+
 void testDistanceTrendAndClosestPointHold() {
   AircraftSelector selector;
   selector.ingestSuccessfulScan({makeAircraft("A", 5.0)});
@@ -218,6 +248,8 @@ int main(int, char**) {
   RUN_TEST(testSelectorDoesNotSwitchForMarginalLead);
   RUN_TEST(testSelectorWaitsForTwoMissingScans);
   RUN_TEST(testSelectorClearsAfterTwoEmptyScans);
+  RUN_TEST(testPublishedRoundTripSelectsCurrentLeg);
+  RUN_TEST(testPublishedRouteRejectsInvalidOrDistantLeg);
   RUN_TEST(testDistanceTrendAndClosestPointHold);
   return UNITY_END();
 }

@@ -56,9 +56,13 @@ is a third-party community service whose availability and access policy can
 change. This firmware is intended for personal, non-commercial use.
 
 When a new aircraft portrait is selected, its callsign and live coordinates
-are sent to ADSB.lol's position-aware route endpoint. A route is displayed only
-when ADSB.lol marks the callsign route as plausible for that position; rejected
-or unknown routes show `N/A`. The ICAO address and callsign are also sent to the
+are sent to ADSB.lol's position-aware route endpoint. ADSB.lol sometimes
+returns a multi-leg or round-trip itinerary such as `CLT-LGA-CLT`; Skyprint
+uses the live position and heading to select the current leg instead of
+incorrectly collapsing that itinerary to `CLT>CLT`. The selected leg is also
+checked locally against the airport coordinates, which protects against stale
+callsign plausibility-cache results. Rejected or unknown routes show `N/A`.
+The ICAO address and callsign are also sent to the
 [ADSBDB API](https://www.adsbdb.com/) for the manufacturer/full model name and
 the airline/radio telephony identity. That identity replaces the generic
 top-left caption—for example, `BLUE STREAK / PSA AIRLINES` for a JIA flight.
