@@ -8,8 +8,11 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
+#include <vector>
 
 #include "adsblol_ca.h"
+#include "route_selection.h"
 #include "settings.h"
 
 namespace skyprint {
@@ -34,13 +37,16 @@ onyF377c+MM1oqVNs17sgu7F9YKZwgLmVbeOMDbKAXHtKMDLbiGllCcs8f47
 -----END CERTIFICATE-----
 )CERT";
 
-std::string airportCode(JsonObjectConst airport) {
+PublishedAirport publishedAirport(JsonObjectConst airport) {
+  PublishedAirport result;
   const char* iata = airport["iata_code"] | "";
   if (iata[0] == '\0') iata = airport["iata"] | "";
-  if (iata[0] != '\0') return iata;
   const char* icao = airport["icao_code"] | "";
   if (icao[0] == '\0') icao = airport["icao"] | "";
-  return icao;
+  result.code = iata[0] != '\0' ? iata : icao;
+  result.latitude = airport["lat"] | 0.0;
+  result.longitude = airport["lon"] | 0.0;
+  return result;
 }
 
 std::string uppercaseTrimmed(const char* value) {
@@ -160,7 +166,8 @@ RouteFetchResult AviationMetadataClient::fetchAdsbDbAirlineIdentity(
 }
 
 RouteFetchResult AviationMetadataClient::fetchAdsbLolRoute(
-    const std::string& callsign, double latitude, double longitude) const {
+    const std::string& callsign, double latitude, double longitude,
+    bool hasHeading, double headingDegrees) const {
   RouteFetchResult result;
   if (callsign.empty() || callsign == "NO CALLSIGN") {
     result.completed = true;
@@ -234,9 +241,10 @@ RouteFetchResult AviationMetadataClient::fetchAdsbLolRoute(
   }
 
   JsonDocument filter;
-  filter["plausible"] = true;
   filter["_airports"][0]["iata"] = true;
   filter["_airports"][0]["icao"] = true;
+  filter["_airports"][0]["lat"] = true;
+  filter["_airports"][0]["lon"] = true;
 
   JsonDocument document;
   const DeserializationError jsonError = deserializeJson(
@@ -248,32 +256,34 @@ RouteFetchResult AviationMetadataClient::fetchAdsbLolRoute(
   }
 
   result.completed = true;
-  if (!(document["plausible"] | false)) {
-    result.error = "route rejected as implausible";
-    http.end();
-    return result;
+  const JsonArrayConst airportJson =
+      document["_airports"].as<JsonArrayConst>();
+  std::vector<PublishedAirport> airports;
+  airports.reserve(airportJson.size());
+  for (JsonObjectConst airport : airportJson) {
+    if (airport["lat"].isNull() || airport["lon"].isNull()) continue;
+    const PublishedAirport parsed = publishedAirport(airport);
+    if (!parsed.code.empty() && std::isfinite(parsed.latitude) &&
+        std::isfinite(parsed.longitude) && parsed.latitude >= -90.0 &&
+        parsed.latitude <= 90.0 && parsed.longitude >= -180.0 &&
+        parsed.longitude <= 180.0) {
+      airports.push_back(parsed);
+    }
   }
 
-  const JsonArrayConst airports = document["_airports"].as<JsonArrayConst>();
-  if (airports.size() < 2) {
-    result.error = "route unavailable";
-    http.end();
-    return result;
+  if (!selectPublishedRouteLeg(airports, latitude, longitude, hasHeading,
+                               headingDegrees, result.route)) {
+    result.error = "route rejected as implausible";
   }
-  result.route.origin = airportCode(airports[0].as<JsonObjectConst>());
-  result.route.destination =
-      airportCode(airports[airports.size() - 1].as<JsonObjectConst>());
-  if (airports.size() == 3) {
-    result.route.midpoint = airportCode(airports[1].as<JsonObjectConst>());
-  }
-  if (!result.route.available()) result.error = "route unavailable";
   http.end();
   return result;
 }
 
 RouteFetchResult AviationMetadataClient::fetchRoute(
-    const std::string& callsign, double latitude, double longitude) const {
-  RouteFetchResult route = fetchAdsbLolRoute(callsign, latitude, longitude);
+    const std::string& callsign, double latitude, double longitude,
+    bool hasHeading, double headingDegrees) const {
+  RouteFetchResult route = fetchAdsbLolRoute(
+      callsign, latitude, longitude, hasHeading, headingDegrees);
   const RouteFetchResult airline = fetchAdsbDbAirlineIdentity(callsign);
   route.route.airlineName = airline.route.airlineName;
   route.route.airlineCallsign = airline.route.airlineCallsign;

@@ -26,12 +26,15 @@ struct AircraftNameFetchResult {
 class AviationMetadataClient {
  public:
   RouteFetchResult fetchRoute(const std::string& callsign, double latitude,
-                              double longitude) const;
+                              double longitude, bool hasHeading,
+                              double headingDegrees) const;
   AircraftNameFetchResult fetchAircraftName(const std::string& hex) const;
 
  private:
   RouteFetchResult fetchAdsbLolRoute(const std::string& callsign,
-                                     double latitude, double longitude) const;
+                                     double latitude, double longitude,
+                                     bool hasHeading,
+                                     double headingDegrees) const;
   RouteFetchResult fetchAdsbDbAirlineIdentity(
       const std::string& callsign) const;
 };

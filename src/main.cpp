@@ -168,9 +168,9 @@ void fetchRouteForCurrent(uint32_t now, bool newAircraft) {
   }
 
   lastRouteAttemptAt = now;
-  const skyprint::RouteFetchResult routeFetch =
-      metadataClient.fetchRoute(current->callsign, current->latitude,
-                                current->longitude);
+  const skyprint::RouteFetchResult routeFetch = metadataClient.fetchRoute(
+      current->callsign, current->latitude, current->longitude,
+      current->hasHeading, current->headingDeg);
   routeLookupCompleted = routeFetch.completed;
   if (routeFetch.completed || routeFetch.route.available() ||
       routeFetch.route.hasAirlineIdentity()) {
